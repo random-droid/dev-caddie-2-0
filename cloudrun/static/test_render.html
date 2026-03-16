@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>Test Rendering</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+</head>
+
+<body>
+    <div id="content"></div>
+    <script>
+        // MOCK DATA SIMULATING BACKEND RESPONSE
+        // This attempts to replicate what gemini-2.5-flash might return
+        const mockData = {
+            "title": "Test Lecture",
+            "created_at": "2026-02-07T20:00:00Z",
+            "original_url": "https://youtube.com/test",
+            "summary": "This is a summary.",
+            "content": "# Heading\n\nHere is a slide placeholder: [SLIDE: 00:05]\n\nAnd some text.\n\nAnother slide: [SLIDE: 05:30]",
+            "transcript_segments": [],
+            "video_uri": "gs://bucket/video.mp4"
+            // Note: The frontend code I saw *does not* seem to use this "slides" array to replace placeholders!
+            // It just passes `data.content` to `marked.parse()`.
+            // If `data.content` has `[SLIDE: MM:SS]`, marked will just render that as text.
+        };
+
+        const html = `
+            <div class="mb-8 p-10">
+                <h1 class="text-3xl font-bold mb-2 text-gray-800">${mockData.title}</h1>
+                <div class="markdown-body">
+                    ${marked.parse(mockData.content)}
+                </div>
+            </div>
+        `;
+        document.getElementById('content').innerHTML = html;
+    </script>
+</body>
+
+</html>

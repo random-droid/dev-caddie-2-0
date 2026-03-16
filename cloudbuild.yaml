@@ -1,0 +1,13 @@
+steps:
+  - name: "gcr.io/cloud-builders/docker"
+    entrypoint: "bash"
+    args:
+      - "-c"
+      - |
+        set -e
+        docker pull ${_IMAGE}:latest || true
+        docker build --cache-from ${_IMAGE}:latest -t ${_IMAGE}:latest cloudrun
+  - name: "gcr.io/cloud-builders/docker"
+    args: ["push", "${_IMAGE}:latest"]
+images:
+  - "${_IMAGE}:latest"

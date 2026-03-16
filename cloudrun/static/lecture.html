@@ -1,0 +1,1177 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>Lecture Notes | Lecture Caddie</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/dompurify@3/dist/purify.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/d3@7/dist/d3.min.js"></script>
+    <script src="https://www.youtube.com/iframe_api"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@daily-co/daily-js"></script>
+    <style>
+        #yt-player-wrap { width: 100%; aspect-ratio: 16/9; border-radius: 8px; overflow: hidden; margin-bottom: 1.5rem; background: #000; }
+        #yt-player-wrap iframe { width: 100%; height: 100%; }
+    </style>
+    <style>
+        :root {
+            --cream:      #F6F0E4;
+            --sage:       #7FAE8F;
+            --sage-dark:  #5F9070;
+            --mint:       #AFCFB4;
+            --sand:       #DCC9A6;
+            --deep:       #2F5A45;
+            --sage-soft:  rgba(127, 174, 143, 0.3);
+            --sage-glow:  rgba(127, 174, 143, 0.9);
+        }
+
+        .bg-primary { background-color: var(--deep); }
+        .text-primary { color: var(--deep); }
+        .bg-accent { background-color: var(--sage); }
+        .text-accent { color: var(--sage); }
+        .border-accent { border-color: var(--sage); }
+        .hover\:text-accent:hover { color: var(--sage-dark); }
+
+        html, body {
+            background: var(--cream);
+            font-family: -apple-system, sans-serif;
+            overflow-x: clip;
+        }
+
+        /* ── Notes markdown ── */
+        .markdown-body { color: #2d3748; line-height: 1.6; min-width: 0; overflow-wrap: anywhere; word-break: break-word; }
+        .markdown-body h1 { font-size: 2.25em; font-weight: 800; margin-bottom: 0.5em; color: #1a202c; }
+        .markdown-body h2 { font-size: 1.5em; font-weight: 700; margin-top: 1.5em; margin-bottom: 0.5em; border-bottom: 2px solid #e2e8f0; padding-bottom: 0.3em; color: #2d3748; }
+        .markdown-body h3 { font-size: 1.25em; font-weight: 600; margin-top: 1em; margin-bottom: 0.5em; color: #2d3748; }
+        .markdown-body ul { list-style-type: disc; padding-left: 1.5em; margin-bottom: 1em; }
+        .markdown-body p { margin-bottom: 1em; }
+        .markdown-body img { max-width: 100%; width: auto; height: auto; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,.1); margin: 20px 0; display: block; }
+        .markdown-body :is(p, li, blockquote, td, th, a, code, pre) { overflow-wrap: anywhere; word-break: break-word; }
+        .markdown-body code { background: #edf2f7; padding: .2em .4em; border-radius: 4px; font-size: .9em; white-space: break-spaces; }
+        .markdown-body pre { background: #2d3748; color: white; padding: 1em; border-radius: 8px; overflow-x: auto; margin-bottom: 1em; max-width: 100%; white-space: pre-wrap; }
+        .markdown-body pre code { background: transparent; padding: 0; color: white; white-space: inherit; }
+        .markdown-body blockquote { border-left: 4px solid var(--sage); padding: 1em; margin-left: 0; color: #4a5568; background: #f7fafc; border-radius: 4px; }
+        .markdown-body table { width: 100%; border-collapse: collapse; margin: 1.5em 0; table-layout: fixed; }
+        .markdown-body th, .markdown-body td { border: 1px solid #e2e8f0; padding: .75em 1em; text-align: left; vertical-align: top; word-break: break-word; overflow-wrap: break-word; }
+        .markdown-body th { background: var(--deep); color: white; font-weight: 600; }
+        .markdown-body th:first-child, .markdown-body td:first-child { width: 25%; }
+        .markdown-body th:nth-child(2), .markdown-body td:nth-child(2) { width: 15%; text-align: center; }
+        .markdown-body th:last-child, .markdown-body td:last-child { width: 60%; }
+        .markdown-body tr:nth-child(even) { background: #f7fafc; }
+        .markdown-body tr:hover { background: #edf2f7; }
+
+        .loading { display: flex; justify-content: center; align-items: center; min-height: 50vh; color: #666; font-size: 1.2em; }
+
+        /* ── Graph panel ── */
+        #graph-panel {
+            width: 380px;
+            min-width: 340px;
+            flex-shrink: 0;
+            position: sticky;
+            top: 1.5rem;
+            max-height: calc(100vh - 5rem);
+            overflow-y: auto;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 2px 12px rgba(0,0,0,.08);
+            padding: 1rem;
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+        }
+
+        /* Section timeline bar */
+        #section-bar {
+            display: flex;
+            height: 20px;
+            border-radius: 6px;
+            overflow: hidden;
+            gap: 2px;
+        }
+        .section-block {
+            height: 100%;
+            min-width: 4px;
+            cursor: pointer;
+            opacity: 0.7;
+            transition: opacity .2s;
+        }
+        .section-block:hover, .section-block.active { opacity: 1; }
+        .section-block.active { outline: 2px solid var(--deep); outline-offset: 1px; }
+
+        /* Scrubber */
+        #time-scrubber {
+            width: 100%;
+            accent-color: var(--deep);
+            cursor: pointer;
+        }
+
+        /* SVG graph */
+        #graph-svg {
+            width: 100%;
+            flex: 1;
+            min-height: 280px;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            background: #fafafa;
+            overflow: hidden;
+        }
+
+        /* Tooltip */
+        #graph-tooltip {
+            position: fixed;
+            background: var(--deep);
+            color: white;
+            padding: 8px 12px;
+            border-radius: 8px;
+            font-size: 12px;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity .15s;
+            z-index: 1000;
+            max-width: 220px;
+            line-height: 1.4;
+        }
+
+        /* Node legend */
+        .legend-dot {
+            display: inline-block;
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            margin-right: 4px;
+        }
+
+        /* Outer layout */
+        #outer {
+            display: flex;
+            gap: 1.5rem;
+            align-items: flex-start;
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 1.5rem 1rem;
+            /* Must NOT have overflow set — lets sticky work correctly */
+        }
+        #notes-panel {
+            flex: 1;
+            min-width: 0;
+            overflow-x: clip;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 2px 12px rgba(0,0,0,.08);
+            padding: 2rem;
+        }
+
+        /* Hide graph on small screens */
+        @media (max-width: 900px) {
+            #outer { flex-direction: column; }
+            #graph-panel { width: 100%; min-width: 0; position: static; height: auto; max-height: 70vh; }
+            #graph-svg { min-height: 280px; }
+        }
+
+        /* D3 node/edge styles */
+        .graph-link { stroke: #cbd5e0; stroke-width: 1.5px; }
+        .graph-node circle { stroke: white; stroke-width: 2px; cursor: pointer; }
+        .graph-node text { font-size: 9px; fill: #4a5568; pointer-events: none; }
+        .graph-node { opacity: 0; transition: opacity .5s; }
+        .graph-node.visible { opacity: 1; }
+        .graph-link { opacity: 0; transition: opacity .5s; }
+        .graph-link.visible { opacity: 1; }
+        .graph-node.in-section circle { stroke: #F59E0B; stroke-width: 3px; filter: drop-shadow(0 0 5px rgba(245,158,11,0.75)); }
+        .graph-node.in-section text { fill: #92400e; font-weight: bold; }
+
+        /* ── Spike 2 article cards ── */
+        .spike2-card {
+            background: white;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            padding: 8px 10px;
+            margin-bottom: 6px;
+            cursor: pointer;
+            transition: border-color 0.2s, box-shadow 0.2s;
+        }
+        .spike2-card:hover { border-color: var(--sage); box-shadow: 0 2px 8px rgba(127, 174, 143,0.15); }
+        .spike2-card.injected { border-color: #10B981; background: #f0fdf4; cursor: default; }
+        .spike2-card-title { font-size: 0.75rem; font-weight: 600; color: var(--deep); line-height: 1.3; margin-bottom: 4px; }
+        .spike2-card-reasoning { font-size: 0.68rem; color: #718096; line-height: 1.4; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+        .spike2-scores { display: flex; gap: 6px; margin-top: 5px; }
+        .spike2-score-badge { font-size: 0.62rem; font-weight: 700; padding: 1px 6px; border-radius: 10px; }
+        .spike2-score-ai { background: rgba(127, 174, 143, 0.12); color: var(--deep); }
+        .spike2-score-community { background: #fef3c7; color: #92400e; }
+
+        /* ── Caddie ── */
+        .copilot-pulse {
+            width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0;
+            background: #10B981;
+            animation: copilot-pulse-anim 1.5s ease-in-out infinite;
+        }
+        .copilot-pulse.speaking {
+            background: #3B82F6;
+            animation: copilot-pulse-anim 0.75s ease-in-out infinite;
+        }
+        @keyframes copilot-pulse-anim {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.5; transform: scale(1.4); }
+        }
+    </style>
+</head>
+
+<body>
+    <header class="bg-primary text-white p-5 shadow-md">
+        <div style="max-width:1400px;margin:0 auto" class="flex justify-between items-center">
+            <h1 class="text-xl font-bold flex items-center gap-2">
+                <a href="/" class="hover:text-accent transition-colors">Lecture Caddie</a>
+                <span class="text-gray-400 text-sm">/ Lecture Notes</span>
+            </h1>
+            <a href="/#lectures" class="text-sm bg-white/10 px-3 py-1 rounded hover:bg-white/20 transition">← Back to Lectures</a>
+        </div>
+    </header>
+
+    <div id="outer">
+        <!-- LEFT: Notes -->
+        <main id="notes-panel">
+            <div id="content" class="loading">Loading lecture notes...</div>
+        </main>
+
+        <!-- RIGHT: Concept Graph (hidden until data available) -->
+        <aside id="graph-panel" style="display:none">
+            <div class="flex items-center justify-between">
+                <h2 class="font-bold text-gray-700 text-sm">Lecture Caddie</h2>
+            </div>
+
+            <!-- Caddie button (centered circle, mirrors morning briefing) -->
+            <div style="display:flex; flex-direction:column; align-items:center; padding:8px 0 4px;">
+                <div style="position:relative; display:inline-flex; align-items:center; justify-content:center;">
+                    <button id="btn-copilot" onclick="toggleCopilot()"
+                        style="width:70px; height:70px; border-radius:50%; background:linear-gradient(135deg, var(--sage), var(--deep)); border:none; color:white; font-size:1.75rem; box-shadow:0 8px 15px -3px rgba(127, 174, 143, 0.35); cursor:pointer; transition:all 0.3s ease; display:flex; align-items:center; justify-content:center;">
+                        🎙
+                    </button>
+                    <div id="copilot-pulse-ring"
+                        style="position:absolute; inset:-6px; border-radius:50%; border:2px solid rgba(127, 174, 143, 0.6); opacity:0; pointer-events:none; transition:opacity 0.3s;">
+                    </div>
+                </div>
+                <div style="margin-top:8px; text-align:center;">
+                    <div style="font-size:0.8rem; font-weight:700; color:var(--deep);">Caddie</div>
+                    <div id="copilot-status" style="font-size:0.72rem; color:#718096;">Tap to activate</div>
+                </div>
+                <button id="btn-copilot-end" onclick="stopCopilot()"
+                    style="display:none; margin-top:6px; background:transparent; border:1px solid #e53e3e; color:#e53e3e; padding:3px 14px; border-radius:12px; cursor:pointer; font-size:0.72rem;">
+                    ✕ End Session
+                </button>
+            </div>
+
+            <!-- Section timeline -->
+            <div>
+                <div id="section-bar" title="Sections"></div>
+                <div id="section-label" class="text-xs text-gray-500 mt-1 truncate"></div>
+            </div>
+
+            <!-- Scrubber -->
+            <div>
+                <input type="range" id="time-scrubber" min="0" value="0" step="1">
+                <div class="flex justify-between text-xs text-gray-400 mt-1">
+                    <span id="time-current">0:00</span>
+                    <span id="time-total">0:00</span>
+                </div>
+            </div>
+
+            <!-- D3 SVG -->
+            <div class="flex items-center gap-2 mt-1">
+                <span class="text-xs font-semibold text-gray-500">Concept Graph</span>
+                <span id="graph-node-count" class="text-xs text-gray-400">0 concepts</span>
+            </div>
+            <svg id="graph-svg"></svg>
+
+            <!-- Legend -->
+            <div class="flex flex-wrap gap-x-3 gap-y-1 text-xs text-gray-500">
+                <span><span class="legend-dot" style="background:#3B82F6"></span>technology</span>
+                <span><span class="legend-dot" style="background:#8B5CF6"></span>concept</span>
+                <span><span class="legend-dot" style="background:#10B981"></span>method</span>
+                <span><span class="legend-dot" style="background:#F59E0B"></span>tool</span>
+                <span><span class="legend-dot" style="background:#EF4444"></span>person</span>
+            </div>
+
+            <!-- Spike 2: Related Articles -->
+            <div id="spike2-panel" style="display:none; margin-top:10px;">
+                <div style="font-size:0.72rem; font-weight:700; color:#718096; text-transform:uppercase; letter-spacing:0.05em; margin-bottom:6px;">
+                    Related Reading
+                </div>
+                <div id="spike2-articles"></div>
+            </div>
+        </aside>
+    </div>
+
+    <!-- Tooltip -->
+    <div id="graph-tooltip"></div>
+
+    <script>
+    // ─────────────────────────────────────────────────────────────────
+    // HELPERS
+    // ─────────────────────────────────────────────────────────────────
+    function escapeHtml(str) {
+        if (!str) return '';
+        return String(str)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#x27;');
+    }
+
+    // Only allow http/https URLs to prevent javascript: URIs
+    function safeHref(url) {
+        try {
+            const u = new URL(url);
+            if (u.protocol === 'https:' || u.protocol === 'http:') return escapeHtml(url);
+        } catch(e) {}
+        return '#';
+    }
+
+    function decodeJsonStringLiteral(literal) {
+        if (typeof literal !== 'string') return '';
+        try {
+            return JSON.parse(`"${literal}"`);
+        } catch (e) {
+            return literal
+                .replace(/\\r\\n/g, '\n')
+                .replace(/\\n/g, '\n')
+                .replace(/\\t/g, '\t')
+                .replace(/\\"/g, '"')
+                .replace(/\\\\/g, '\\');
+        }
+    }
+
+    function extractJsonStringField(raw, fieldName) {
+        if (typeof raw !== 'string') return null;
+        const match = raw.match(new RegExp(`"${fieldName}"\\s*:\\s*"`));
+        if (!match) return null;
+
+        let value = '';
+        let escaping = false;
+        for (let i = match.index + match[0].length; i < raw.length; i++) {
+            const ch = raw[i];
+            if (escaping) {
+                value += ch;
+                escaping = false;
+                continue;
+            }
+            if (ch === '\\') {
+                value += ch;
+                escaping = true;
+                continue;
+            }
+            if (ch === '"') {
+                return decodeJsonStringLiteral(value);
+            }
+            value += ch;
+        }
+        return null;
+    }
+
+    function normalizeLecturePayload(data) {
+        const normalized = { ...data };
+        const rawContent = typeof normalized.content === 'string' ? normalized.content.trim() : '';
+        if (!(rawContent.startsWith('{') && rawContent.includes('"markdown"'))) {
+            return normalized;
+        }
+
+        try {
+            const parsed = JSON.parse(rawContent);
+            if (parsed && typeof parsed === 'object') {
+                if (typeof parsed.markdown === 'string' && parsed.markdown) {
+                    normalized.content = parsed.markdown;
+                }
+                if (!normalized.summary && typeof parsed.summary === 'string') {
+                    normalized.summary = parsed.summary;
+                }
+                if ((!normalized.title || normalized.title === 'Unknown Title') && typeof parsed.title === 'string') {
+                    normalized.title = parsed.title;
+                }
+                return normalized;
+            }
+        } catch (e) {}
+
+        const markdown = extractJsonStringField(rawContent, 'markdown');
+        if (markdown) normalized.content = markdown;
+
+        if (!normalized.summary) {
+            const summary = extractJsonStringField(rawContent, 'summary');
+            if (summary) normalized.summary = summary;
+        }
+
+        if (!normalized.title || normalized.title === 'Unknown Title') {
+            const title = extractJsonStringField(rawContent, 'title');
+            if (title) normalized.title = title;
+        }
+
+        return normalized;
+    }
+
+    // ─────────────────────────────────────────────────────────────────
+    // NOTES RENDERER
+    // ─────────────────────────────────────────────────────────────────
+    async function fetchNote() {
+        const pathParts = window.location.pathname.split('/').filter(Boolean);
+        const articleId = pathParts[pathParts.length - 1];
+
+        if (!articleId) {
+            document.getElementById('content').innerHTML = '<div class="text-red-500 text-center">Invalid ID</div>';
+            return;
+        }
+
+        try {
+            const response = await fetch(`/api/lectures/${articleId}`);
+            if (!response.ok) throw new Error('Not found');
+            const data = normalizeLecturePayload(await response.json());
+
+            const date = new Date(data.created_at).toLocaleDateString();
+            const rawContent = (data.content || '')
+                .replace(/!\[[\s\S]*?\]\([\s\S]*?\)/g, '')           // strip images
+                .replace(/^(\|[|\s:-]*\|)$/gm, m => m.replace(/-{4,}/g, '----')) // normalize long table separators
+                .replace(/^ {4}([*-])\s/gm, '  $1 ');               // fix 4-space bullets treated as code blocks
+            const safeMarkdown = DOMPurify.sanitize(marked.parse(rawContent));
+            const videoId = extractVideoId(data.original_url || '');
+            const playerHtml = videoId
+                ? `<div id="yt-player-wrap" style="display:none"><div id="yt-player"></div></div>
+                   <p id="yt-fallback" class="text-sm mb-2"><a href="https://www.youtube.com/watch?v=${escapeHtml(videoId)}" target="_blank" class="text-blue-500 hover:underline">▶ Watch on YouTube ↗</a></p>`
+                : `<p class="text-sm mb-4"><a href="${safeHref(data.original_url)}" class="text-blue-500 hover:underline">Original Video ↗</a></p>`;
+            document.getElementById('content').innerHTML = `
+                <div class="mb-8">
+                    ${playerHtml}
+                    <h1 class="text-3xl font-bold mb-2 text-gray-800">${escapeHtml(data.title) || 'Untitled'}</h1>
+                    <div class="text-gray-500 text-sm mb-6">Generated on ${escapeHtml(date)}</div>
+                    ${data.summary ? `<div class="bg-gray-50 p-4 rounded-lg italic text-gray-700 mb-8 border-l-4 border-accent">${escapeHtml(data.summary)}</div>` : ''}
+                    <div class="markdown-body">${safeMarkdown}</div>
+                </div>`;
+            if (videoId) setTimeout(() => initYouTubePlayer(videoId), 50);
+
+            // Attempt to render concept graph
+            initGraph(data);
+        } catch (e) {
+            document.getElementById('content').innerHTML = `<div class="text-center p-10">Error loading notes.</div>`;
+        }
+    }
+
+    // ─────────────────────────────────────────────────────────────────
+    // CONCEPT GRAPH
+    // ─────────────────────────────────────────────────────────────────
+    const TYPE_COLORS = {
+        technology: '#3B82F6',
+        concept:    '#8B5CF6',
+        method:     '#10B981',
+        tool:       '#F59E0B',
+        person:     '#EF4444',
+    };
+    const DEFAULT_COLOR = '#6B7280';
+
+    let sections = [], allNodes = [], allEdges = [];
+    let currentTime = 0, maxTime = 0;
+    let playInterval = null;
+    let simulation = null;
+    let svgWidth = 0, svgHeight = 0;
+
+    // D3 selections (set during initGraph)
+    let linkSel, nodeSel;
+
+    function fmtTime(s) {
+        const m = Math.floor(s / 60), sec = s % 60;
+        return `${m}:${String(sec).padStart(2,'0')}`;
+    }
+
+    function initGraph(data) {
+        // Parse sections
+        try { sections = typeof data.sections === 'string' ? JSON.parse(data.sections) : (data.sections || []); }
+        catch(e) { sections = []; }
+
+        // Parse concept_graph
+        let graphObj = {};
+        try { graphObj = typeof data.concept_graph === 'string' ? JSON.parse(data.concept_graph) : (data.concept_graph || {}); }
+        catch(e) { graphObj = {}; }
+
+        allNodes = graphObj.nodes || [];
+        allEdges = graphObj.edges || [];
+
+        if (!allNodes.length && !sections.length) return; // No graph data → panel stays hidden
+
+        document.getElementById('graph-panel').style.display = 'flex';
+
+        // Compute maxTime from sections or max first_seen_at_s
+        if (sections.length) {
+            maxTime = sections[sections.length - 1].end_time_s || 0;
+        }
+        if (!maxTime && allNodes.length) {
+            maxTime = Math.max(...allNodes.map(n => n.first_seen_at_s || 0), 1);
+        }
+        maxTime = maxTime || 300; // fallback 5 min
+
+        // Set up scrubber
+        const scrubber = document.getElementById('time-scrubber');
+        scrubber.max = maxTime;
+        scrubber.value = maxTime;
+        currentTime = maxTime;
+        document.getElementById('time-total').textContent = fmtTime(maxTime);
+        scrubber.addEventListener('input', e => {
+            currentTime = parseInt(e.target.value);
+            updateAll(currentTime);
+        });
+
+        // Build section bar
+        buildSectionBar();
+
+        // Init D3 simulation
+        initSimulation();
+
+        // Render all concepts on load (scrubber lets user explore timeline)
+        updateAll(maxTime);
+    }
+
+    function buildSectionBar() {
+        const bar = document.getElementById('section-bar');
+        bar.innerHTML = '';
+        if (!sections.length) return;
+
+        const sectionColors = ['var(--deep)','var(--sage)','#3B82F6','#8B5CF6','#10B981','#F59E0B','#EF4444'];
+        sections.forEach((sec, i) => {
+            const dur = (sec.end_time_s - sec.start_time_s) || 1;
+            const pct = (dur / maxTime) * 100;
+            const block = document.createElement('div');
+            block.className = 'section-block';
+            block.style.width = pct + '%';
+            block.style.background = sectionColors[i % sectionColors.length];
+            block.title = sec.title;
+            block.dataset.idx = i;
+            block.addEventListener('click', () => {
+                currentTime = sec.start_time_s;
+                document.getElementById('time-scrubber').value = currentTime;
+                updateAll(currentTime);
+            });
+            bar.appendChild(block);
+        });
+    }
+
+    function updateSectionHighlight(t) {
+        const blocks = document.querySelectorAll('.section-block');
+        let activeLabel = '';
+        sections.forEach((sec, i) => {
+            const active = t >= sec.start_time_s && t < sec.end_time_s;
+            blocks[i] && blocks[i].classList.toggle('active', active);
+            if (active) activeLabel = sec.title;
+        });
+        document.getElementById('section-label').textContent = activeLabel;
+    }
+
+    function initSimulation() {
+        const svgEl = document.getElementById('graph-svg');
+        const rect = svgEl.getBoundingClientRect();
+        svgWidth = rect.width || 340;
+        svgHeight = rect.height || 300;
+
+        const svg = d3.select('#graph-svg');
+        svg.selectAll('*').remove();
+
+        // Defs for arrowhead
+        svg.append('defs').append('marker')
+            .attr('id', 'arrowhead')
+            .attr('viewBox', '-0 -5 10 10')
+            .attr('refX', 18)
+            .attr('refY', 0)
+            .attr('orient', 'auto')
+            .attr('markerWidth', 6)
+            .attr('markerHeight', 6)
+            .append('path')
+            .attr('d', 'M 0,-5 L 10,0 L 0,5')
+            .attr('fill', '#cbd5e0');
+
+        const g = svg.append('g');
+
+        // Zoom/pan
+        svg.call(d3.zoom()
+            .scaleExtent([0.3, 3])
+            .on('zoom', (event) => g.attr('transform', event.transform))
+        );
+
+        // Link group (behind nodes)
+        g.append('g').attr('class', 'links-g');
+        // Node group
+        g.append('g').attr('class', 'nodes-g');
+
+        simulation = d3.forceSimulation()
+            .force('link', d3.forceLink().id(d => d.id).distance(80).strength(0.4))
+            .force('charge', d3.forceManyBody().strength(-180))
+            .force('center', d3.forceCenter(svgWidth / 2, svgHeight / 2))
+            .force('collision', d3.forceCollide(20))
+            .alphaDecay(0.03);
+    }
+
+    function highlightActiveNodes(t) {
+        const activeSec = sections.find(s => t >= s.start_time_s && t < s.end_time_s);
+        const activeConcepts = activeSec
+            ? new Set((activeSec.key_concepts || []).map(c => c.toLowerCase().trim()))
+            : new Set();
+        d3.select('#graph-svg').selectAll('g.graph-node')
+            .classed('in-section', d =>
+                activeConcepts.size > 0 &&
+                (activeConcepts.has(d.id.toLowerCase().trim()) ||
+                 activeConcepts.has(d.label.toLowerCase().trim()))
+            );
+    }
+
+    function updateAll(t) {
+        document.getElementById('time-current').textContent = fmtTime(t);
+        updateSectionHighlight(t);
+        renderGraph(t);
+        highlightActiveNodes(t);
+        document.getElementById('graph-node-count').textContent =
+            allNodes.filter(n => n.first_seen_at_s <= t).length + ' concepts';
+    }
+
+    function renderGraph(t) {
+        const visibleNodeIds = new Set(
+            allNodes.filter(n => (n.first_seen_at_s || 0) <= t).map(n => n.id)
+        );
+        const visNodes = allNodes.filter(n => visibleNodeIds.has(n.id));
+        const visEdges = allEdges.filter(e => {
+            const srcId = typeof e.source === 'object' ? e.source.id : e.source;
+            const tgtId = typeof e.target === 'object' ? e.target.id : e.target;
+            return (e.first_seen_at_s || 0) <= t && visibleNodeIds.has(srcId) && visibleNodeIds.has(tgtId);
+        });
+
+        const svg = d3.select('#graph-svg');
+        const linksG = svg.select('.links-g');
+        const nodesG = svg.select('.nodes-g');
+
+        // ── Links ──
+        const link = linksG.selectAll('line.graph-link')
+            .data(visEdges, d => {
+                const s = typeof d.source === 'object' ? d.source.id : d.source;
+                const t2 = typeof d.target === 'object' ? d.target.id : d.target;
+                return `${s}→${t2}`;
+            });
+
+        link.enter().append('line')
+            .attr('class', 'graph-link')
+            .attr('marker-end', 'url(#arrowhead)')
+            .style('opacity', 0)
+            .transition().duration(500)
+            .style('opacity', 1);
+
+        link.exit().remove();
+
+        // ── Nodes ──
+        const nodeG = nodesG.selectAll('g.graph-node')
+            .data(visNodes, d => d.id);
+
+        const entered = nodeG.enter().append('g')
+            .attr('class', 'graph-node')
+            .style('opacity', 0)
+            .call(d3.drag()
+                .on('start', (event, d) => {
+                    if (!event.active) simulation.alphaTarget(0.3).restart();
+                    d.fx = d.x; d.fy = d.y;
+                })
+                .on('drag', (event, d) => { d.fx = event.x; d.fy = event.y; })
+                .on('end', (event, d) => {
+                    if (!event.active) simulation.alphaTarget(0);
+                    d.fx = null; d.fy = null;
+                })
+            )
+            .on('mouseover', (event, d) => showTooltip(event, d))
+            .on('mousemove', (event) => moveTooltip(event))
+            .on('mouseout', () => hideTooltip());
+
+        entered.append('circle')
+            .attr('r', 9)
+            .attr('fill', d => TYPE_COLORS[d.type] || DEFAULT_COLOR);
+
+        entered.append('text')
+            .attr('x', 11)
+            .attr('y', 3)
+            .text(d => d.label);
+
+        entered.transition().duration(500).style('opacity', 1);
+        nodeG.exit().remove();
+
+        // Update simulation with current data
+        const allLinkEls = linksG.selectAll('line.graph-link');
+        const allNodeEls = nodesG.selectAll('g.graph-node');
+
+        simulation.nodes(visNodes);
+        simulation.force('link').links(visEdges);
+        simulation.alpha(0.4).restart();
+
+        simulation.on('tick', () => {
+            allLinkEls
+                .attr('x1', d => d.source.x)
+                .attr('y1', d => d.source.y)
+                .attr('x2', d => d.target.x)
+                .attr('y2', d => d.target.y);
+            allNodeEls
+                .attr('transform', d => `translate(${d.x ?? 0},${d.y ?? 0})`);
+        });
+    }
+
+    // ── Tooltip ──
+    const tooltip = document.getElementById('graph-tooltip');
+    function showTooltip(event, d) {
+        tooltip.innerHTML = `<strong>${escapeHtml(d.label)}</strong> <span style="opacity:.7;font-size:10px">${escapeHtml(d.type)}</span>${d.description ? `<br><span style="font-size:11px">${escapeHtml(d.description)}</span>` : ''}`;
+        tooltip.style.opacity = '1';
+        moveTooltip(event);
+    }
+    function moveTooltip(event) {
+        tooltip.style.left = (event.clientX + 12) + 'px';
+        tooltip.style.top  = (event.clientY - 10) + 'px';
+    }
+    function hideTooltip() { tooltip.style.opacity = '0'; }
+
+    // ─────────────────────────────────────────────────────────────────
+    // YOUTUBE IFRAME API
+    // ─────────────────────────────────────────────────────────────────
+    let ytPlayer = null;
+    let ytPollInterval = null;
+
+    function extractVideoId(url) {
+        const m = url.match(/(?:v=|youtu\.be\/)([A-Za-z0-9_-]{11})/);
+        return m ? m[1] : null;
+    }
+
+    function initYouTubePlayer(videoId) {
+        if (!videoId) return;
+        if (window.YT && window.YT.Player) {
+            _createPlayer(videoId);
+        } else {
+            // API not ready yet — queue it
+            window._pendingYtVideoId = videoId;
+        }
+    }
+
+    window.onYouTubeIframeAPIReady = function() {
+        if (window._pendingYtVideoId) {
+            _createPlayer(window._pendingYtVideoId);
+        }
+    };
+
+    function _showFallback(videoId) {
+        const wrap = document.getElementById('yt-player-wrap');
+        if (wrap) wrap.style.display = 'none';
+        // fallback link is always visible — nothing more needed
+    }
+
+    function _createPlayer(videoId) {
+        const wrap = document.getElementById('yt-player-wrap');
+        const playerDiv = document.getElementById('yt-player');
+        if (!wrap || !playerDiv) return;
+
+        // Inject iframe directly with correct allow attributes (YT.Player omits these)
+        const iframe = document.createElement('iframe');
+        iframe.id = 'yt-iframe';
+        iframe.src = `https://www.youtube.com/embed/${encodeURIComponent(videoId)}?enablejsapi=1&origin=${encodeURIComponent(window.location.origin)}&rel=0&modestbranding=1`;
+        iframe.setAttribute('allow', 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share');
+        iframe.setAttribute('referrerpolicy', 'strict-origin-when-cross-origin');
+        iframe.setAttribute('allowfullscreen', '');
+        iframe.style.cssText = 'width:100%;height:100%;border:none;';
+        playerDiv.replaceWith(iframe);
+
+        // Show player, hide fallback link
+        wrap.style.display = 'block';
+        const fb = document.getElementById('yt-fallback');
+        if (fb) fb.style.display = 'none';
+
+        // Attach YT API to the existing iframe for getCurrentTime()
+        ytPlayer = new YT.Player('yt-iframe', {
+            events: {
+                onError: function() { _showFallback(videoId); },
+                onStateChange: function(e) {
+                    if (e.data === YT.PlayerState.PLAYING) {
+                        startYtPoll();
+                        sendVideoPlayingMessage();
+                    } else {
+                        stopYtPoll();
+                        if (e.data === YT.PlayerState.PAUSED) {
+                            const t = ytPlayer && typeof ytPlayer.getCurrentTime === 'function'
+                                ? Math.floor(ytPlayer.getCurrentTime()) : currentTime;
+                            sendVideoPausedMessage(t);
+                        }
+                    }
+                }
+            }
+        });
+    }
+
+    function startYtPoll() {
+        if (ytPollInterval) return;
+        ytPollInterval = setInterval(() => {
+            if (!ytPlayer || typeof ytPlayer.getCurrentTime !== 'function') return;
+            const t = Math.floor(ytPlayer.getCurrentTime());
+            if (t !== currentTime) {
+                currentTime = t;
+                document.getElementById('time-scrubber').value = Math.min(t, maxTime);
+                updateAll(Math.min(t, maxTime));
+            }
+        }, 500);
+    }
+
+    function stopYtPoll() {
+        if (ytPollInterval) { clearInterval(ytPollInterval); ytPollInterval = null; }
+    }
+
+    // ─────────────────────────────────────────────────────────────────
+    // CO-PILOT (Gemini Live via Daily.co WebRTC)
+    // ─────────────────────────────────────────────────────────────────
+    let callObject = null;
+    let copilotActive = false;
+    let caddieGracefullyDisconnected = false; // true after bot sends bot-graceful-disconnect
+    let pendingPausePayload = null;            // video-paused context to send after reconnect
+    let backendGateOpen = false;               // confirmed by backend gate-status message
+    let localIntent = null;                    // 'pausing' while waiting for backend gate-status confirm
+
+    // Stable per-browser identity for scoped Redis memory (prevents cross-user bleed).
+    // Stored in localStorage so the same user resumes their own context after page reload.
+    let caddieClientId = localStorage.getItem('caddieClientId');
+    if (!caddieClientId) {
+        caddieClientId = crypto.randomUUID();
+        localStorage.setItem('caddieClientId', caddieClientId);
+    }
+
+    function getArticleId() {
+        const parts = window.location.pathname.split('/').filter(Boolean);
+        return parts[parts.length - 1];
+    }
+
+    function updateCopilotUI(state) {
+        const btn    = document.getElementById('btn-copilot');
+        const ring   = document.getElementById('copilot-pulse-ring');
+        const status = document.getElementById('copilot-status');
+        const endBtn = document.getElementById('btn-copilot-end');
+        if (state === 'idle') {
+            btn.innerHTML = '🎙';
+            btn.disabled = false;
+            btn.style.opacity = '1';
+            ring.style.opacity = '0';
+            ring.style.animation = 'none';
+            status.textContent = 'Tap to activate';
+            if (endBtn) endBtn.style.display = 'none';
+        } else if (state === 'connecting') {
+            btn.innerHTML = '⏳';
+            btn.disabled = true;
+            btn.style.opacity = '0.85';
+            ring.style.opacity = '0.5';
+            ring.style.animation = 'copilot-pulse-anim 1.5s ease-in-out infinite';
+            status.textContent = 'Connecting...';
+            if (endBtn) endBtn.style.display = 'none';
+        } else if (state === 'active') {
+            // Connected, video paused — gate open, Caddie is listening
+            btn.innerHTML = '🎙';
+            btn.disabled = false;
+            btn.style.opacity = '1';
+            ring.style.opacity = '1';
+            ring.style.animation = 'copilot-pulse-anim 1.5s ease-in-out infinite';
+            status.textContent = 'Listening...';
+            if (endBtn) endBtn.style.display = 'inline-block';
+        } else if (state === 'standby') {
+            // Connected, video playing — gate closed, Caddie on standby
+            btn.innerHTML = '🎙';
+            btn.disabled = false;
+            btn.style.opacity = '0.45';
+            ring.style.opacity = '0';
+            ring.style.animation = 'none';
+            status.textContent = 'Pause to ask';
+            if (endBtn) endBtn.style.display = 'inline-block';
+        } else if (state === 'pending') {
+            // Pause sent — waiting for backend gate-status confirmation
+            btn.innerHTML = '🎙';
+            btn.disabled = false;
+            btn.style.opacity = '0.75';
+            ring.style.opacity = '0.7';
+            ring.style.background = '#F59E0B'; // amber — intent received, not yet confirmed
+            ring.style.animation = 'copilot-pulse-anim 2s ease-in-out infinite';
+            status.textContent = 'Activating...';
+            if (endBtn) endBtn.style.display = 'inline-block';
+        } else if (state === 'speaking') {
+            btn.innerHTML = '🔊';
+            btn.disabled = false;
+            btn.style.opacity = '1';
+            ring.style.background = '';
+            ring.style.opacity = '1';
+            ring.style.animation = 'copilot-pulse-anim 0.75s ease-in-out infinite';
+            status.textContent = 'Speaking...';
+            if (endBtn) endBtn.style.display = 'inline-block';
+        }
+        // Reset ring color for non-pending states
+        if (state !== 'pending') ring.style.background = '';
+    }
+
+    async function startCopilot() {
+        caddieGracefullyDisconnected = false; // clear stale flag from any prior graceful shutdown
+        const articleId = getArticleId();
+        updateCopilotUI('connecting');
+        try {
+            // Request mic permission immediately while user gesture is active (required for Safari)
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+                stream.getTracks().forEach(t => t.stop()); // release immediately; Daily will re-acquire
+            } catch (micErr) {
+                throw new Error(`Microphone access denied: ${micErr.message}`);
+            }
+
+            const resp = await fetch(`/api/lectures/${articleId}/copilot/start`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ client_id: caddieClientId }),
+            });
+            if (!resp.ok) {
+                let msg = 'Could not start Caddie. Try again.';
+                try {
+                    const errData = await resp.json();
+                    if (resp.status === 429) {
+                        msg = errData.detail || 'Daily limit reached. Try again tomorrow.';
+                    } else {
+                        msg = errData.detail || msg;
+                    }
+                } catch(_) {}
+                const statusEl = document.getElementById('copilot-status');
+                if (statusEl) { statusEl.textContent = msg; statusEl.style.color = '#e53e3e'; }
+                updateCopilotUI('idle');
+                resetCopilotState();
+                return;
+            }
+            const data = await resp.json();
+
+            if (!window.DailyIframe) throw new Error('Daily.co SDK not loaded');
+
+            callObject = window.DailyIframe.createCallObject({
+                subscribeToTracksAutomatically: true,
+            });
+
+            // Capture instance at wire-up time. Every handler below guards with
+            // `if (thisCall !== callObject) return` so stale events from a torn-down
+            // call (e.g. left-meeting firing after graceful-disconnect cleanup) can
+            // never overwrite state that belongs to a newer session.
+            const thisCall = callObject;
+
+            thisCall.on('joined-meeting', () => {
+                if (thisCall !== callObject) return;
+                copilotActive = true;
+                callObject.sendAppMessage({ type: 'client-ready' }, '*');
+                if (!pendingPausePayload) {
+                    updateCopilotUI('standby');
+                }
+                console.log('Caddie: joined-meeting', { pendingPausePayload: !!pendingPausePayload });
+            });
+
+            thisCall.on('left-meeting', () => {
+                if (thisCall !== callObject) return; // stale event from a graceful-disconnect teardown
+                if (caddieGracefullyDisconnected) return; // graceful path owns teardown + UI
+                console.log('Caddie: left-meeting (user-initiated stop)');
+                copilotActive = false;
+                callObject = null;
+                updateCopilotUI('idle');
+                resetCopilotState();
+            });
+
+            thisCall.on('error', (e) => {
+                if (thisCall !== callObject) return;
+                console.error('Daily error:', e);
+                copilotActive = false;
+                callObject = null;
+                updateCopilotUI('idle');
+                resetCopilotState();
+            });
+
+            thisCall.on('app-message', (e) => {
+                if (thisCall !== callObject) return;
+                const msg = e.data;
+                if (msg && msg.type === 'bot-speaking') {
+                    if (msg.value) {
+                        updateCopilotUI('speaking');
+                    } else {
+                        // Bot stopped — show listening only if video is still paused
+                        updateCopilotUI(ytPlayer && ytPlayer.getPlayerState && ytPlayer.getPlayerState() === YT.PlayerState.PAUSED ? 'active' : 'standby');
+                    }
+                }
+                if (msg && msg.type === 'bot-ready') {
+                    if (pendingPausePayload && callObject) {
+                        const payload = pendingPausePayload;
+                        pendingPausePayload = null;
+                        callObject.sendAppMessage(payload, '*');
+                        updateCopilotUI('active');
+                        console.log('Caddie: bot-ready → sent pending video-paused', { ghost_resume: !!msg.ghost_resume });
+                    }
+                }
+                if (msg && msg.type === 'gate-status') {
+                    backendGateOpen = !!msg.open;
+                    localIntent = null; // backend confirmed — clear pending intent
+                    updateCopilotUI(backendGateOpen ? 'active' : 'standby');
+                    console.log('Caddie: gate-status', backendGateOpen ? 'OPEN' : 'CLOSED');
+                }
+                if (msg && msg.type === 'spike2-articles') {
+                    renderSpike2Articles(msg.articles || []);
+                }
+                if (msg && msg.type === 'bot-graceful-disconnect') {
+                    // Bot saved context to Redis and is shutting down after 60s standby.
+                    caddieGracefullyDisconnected = true;
+                    const co = callObject;
+                    callObject = null;  // null before leave() so left-meeting instance guard fires
+                    copilotActive = false;
+                    if (co) {
+                        try { co.leave(); } catch(e) {}
+                        try { co.destroy(); } catch(e) {}
+                    }
+                    updateCopilotUI('standby');
+                    console.log('Caddie: graceful shutdown → caddieGracefullyDisconnected=true, UI=standby');
+                }
+            });
+
+            // Route remote (bot) audio to speaker
+            let remoteAudioEl = document.getElementById('caddie-remote-audio');
+            if (!remoteAudioEl) {
+                remoteAudioEl = document.createElement('audio');
+                remoteAudioEl.id = 'caddie-remote-audio';
+                remoteAudioEl.autoplay = true;
+                remoteAudioEl.setAttribute('playsinline', '');
+                remoteAudioEl.style.display = 'none';
+                document.body.appendChild(remoteAudioEl);
+            }
+            thisCall.on('track-started', (evt) => {
+                if (thisCall !== callObject) return;
+                if (evt.participant?.local) return;
+                if (!evt.track || evt.track.kind !== 'audio') return;
+                remoteAudioEl.srcObject = new MediaStream([evt.track]);
+                remoteAudioEl.play().catch(err => console.warn('Remote audio play failed:', err));
+            });
+
+            await callObject.join({
+                url: data.room_url,
+                token: data.token,
+                startVideoOff: true,
+                startAudioOff: false,
+            });
+        } catch(err) {
+            console.error('Co-pilot start failed:', err);
+            callObject = null;
+            updateCopilotUI('idle');
+            resetCopilotState();
+        }
+    }
+
+    function resetCopilotState() {
+        backendGateOpen = false;
+        localIntent = null;
+        clearSpike2();
+    }
+
+    function clearSpike2() {
+        const p = document.getElementById('spike2-panel');
+        const c = document.getElementById('spike2-articles');
+        if (p) p.style.display = 'none';
+        if (c) c.innerHTML = '';
+    }
+
+    function renderSpike2Articles(articles) {
+        const panel = document.getElementById('spike2-panel');
+        const container = document.getElementById('spike2-articles');
+        if (!panel || !container) return;
+        if (!articles.length) { panel.style.display = 'none'; return; }
+        container.innerHTML = '';
+        articles.forEach(article => {
+            const card = document.createElement('div');
+            card.className = 'spike2-card';
+            const aiScore = article.final_score ? article.final_score.toFixed(1) : '—';
+            const commScore = article.community_score ? Math.round(article.community_score) : 0;
+            card.innerHTML = `
+                <div class="spike2-card-title">${article.title || 'Untitled'}</div>
+                <div class="spike2-card-reasoning">${article.ai_reasoning || ''}</div>
+                <div class="spike2-scores">
+                    <span class="spike2-score-badge spike2-score-ai">AI ${aiScore}</span>
+                    <span class="spike2-score-badge spike2-score-community">🔥 ${commScore}</span>
+                    <a href="${article.url || '#'}" target="_blank" rel="noopener"
+                       style="margin-left:auto; font-size:0.62rem; color:#718096; text-decoration:none;"
+                       onclick="event.stopPropagation()">↗ Open</a>
+                </div>
+                <div class="spike2-send-hint" style="margin-top:5px; font-size:0.65rem; color:var(--sage); font-weight:600;">🎙 Tap to discuss with Caddie</div>`;
+            card.addEventListener('click', () => {
+                if (card.classList.contains('injected')) return;
+                if (!callObject) return;
+                callObject.sendAppMessage({ type: 'inject-article', article }, '*');
+                card.classList.add('injected');
+                card.querySelector('.spike2-card-reasoning').textContent = 'Sent to Caddie — ask about it now!';
+                card.querySelector('.spike2-send-hint').textContent = '✓ In conversation';
+            });
+            container.appendChild(card);
+        });
+        panel.style.display = 'block';
+    }
+
+    async function stopCopilot() {
+        caddieGracefullyDisconnected = false; // explicit stop cancels any pending reconnect intent
+        pendingPausePayload = null;
+        const remoteAudioEl = document.getElementById('caddie-remote-audio');
+        if (remoteAudioEl) { remoteAudioEl.srcObject = null; }
+        if (callObject) {
+            try { await callObject.leave(); } catch(e) {}
+            try { callObject.destroy(); } catch(e) {}
+            callObject = null;
+        }
+        copilotActive = false;
+        updateCopilotUI('idle');
+        resetCopilotState();
+    }
+
+    function toggleCopilot() {
+        if (copilotActive || callObject) {
+            stopCopilot();
+        } else {
+            startCopilot();
+        }
+    }
+
+    function sendVideoPlayingMessage() {
+        if (!callObject || !copilotActive) return;
+        backendGateOpen = false; // optimistic reset — confirmed by gate-status response
+        // Send user-interruption first so the bot handler fires StartInterruptionFrame,
+        // then video-playing to close the gate.
+        callObject.sendAppMessage({ type: 'user-interruption' }, '*');
+        callObject.sendAppMessage({ type: 'video-playing' }, '*');
+        updateCopilotUI('standby');
+    }
+
+    async function sendVideoPausedMessage(t) {
+        const activeSec = sections.find(s => t >= s.start_time_s && t < s.end_time_s);
+        const activeConcepts = activeSec
+            ? (activeSec.key_concepts || [])
+            : allNodes.filter(n => (n.first_seen_at_s || 0) <= t).map(n => n.label).slice(0, 8);
+        const pausePayload = {
+            type: 'video-paused',
+            timestamp_s: t,
+            section: activeSec ? activeSec.title : null,
+            active_concepts: activeConcepts,
+        };
+
+        if (caddieGracefullyDisconnected) {
+            // Bot shut down after 60s standby — reconnect with Ghost Resume, then send pause context
+            console.log('Caddie: reconnecting after graceful shutdown...');
+            pendingPausePayload = pausePayload;
+            caddieGracefullyDisconnected = false;
+            try {
+                await startCopilot();
+            } catch(err) {
+                console.error('Caddie: reconnect failed:', err);
+                pendingPausePayload = null;
+                updateCopilotUI('idle');
+            }
+            return;
+        }
+
+        if (!callObject || !copilotActive) return;
+        // Frontend debounce: if backend confirmed gate is already open, suppress resend
+        if (backendGateOpen) {
+            console.log('Caddie: video-paused suppressed — backend gate already open');
+            return;
+        }
+        localIntent = 'pausing';
+        callObject.sendAppMessage(pausePayload, '*');
+        updateCopilotUI('pending'); // amber pulse until backend confirms
+    }
+
+    window.onload = fetchNote;
+    </script>
+</body>
+</html>
